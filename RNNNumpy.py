@@ -20,9 +20,9 @@ class RNNNumpy:
         self.W = np.empty((hidden_size, hidden_size))  # hidden to hidden weights
         self.V = np.empty((data_size, hidden_size))  # hidden to output weights
         # for convenience
-        self.biases = (self.b, self.c)
-        self.weights = (self.U, self.W, self.V)
-        self.params = self.biases + self.weights
+        self.biases = np.array((self.b, self.c))
+        self.weights = np.array((self.U, self.W, self.V))
+        self.params = np.array((self.b, self.c, self.U, self.W, self.V))
 
     def init_params(self):
         """Initialize params"""
@@ -76,7 +76,7 @@ class RNNNumpy:
         :param h_prev: hidden unit at time t=-1
         :param trunc: number of back propagation steps to perform; default to len(xs), i.e. do BPTT exactly; else if
         trunc < len(xs), BPTT will only be done on the last `trunc` elements, so the gradients will be approximate
-        :return: tuple of gradients of loss function wrt model parameters, and loss: ((db, dc, dU, dW, dV), loss)
+        :return: tuple of gradients of loss function wrt model parameters, and loss: (array(db, dc, dU, dW, dV), loss)
         """
         T = len(xs)  # training sequence length
         assert T == len(ys)
@@ -89,7 +89,7 @@ class RNNNumpy:
 
         if trunc is None or trunc > T:  # perform BPTT exactly, on the entire sequence
             trunc = T
-        skip = T - trunc    # the number of BPTT steps to skip
+        skip = T - trunc  # the number of BPTT steps to skip
 
         # feedforward to get predictions/intermediate variables useful for backprop
         hs = np.empty((T, self.hidden_size))  # hidden states across time
@@ -130,7 +130,7 @@ class RNNNumpy:
         dU = np.dot(((1 - hs[skip:] ** 2) * dhs[skip:]).T,
                     np.array(onehot(xs[skip:], self.data_size)))  # (10.28)
 
-        return (db, dc, dU, dW, dV), L
+        return np.array((db, dc, dU, dW, dV)), L
 
     def loss(self, xs, ys, h_prev=None):
         """
@@ -159,3 +159,73 @@ class RNNNumpy:
                 L += -np.log(y_hat[ys[t]])
 
         return L
+
+    def sgd(self, X, Y, trunc=None, eta=0.05, adagrad=True, num_epochs=100, report_interval=25, element_map=None):
+        """
+        Train with SGD given training and target sequences
+        :param X: list of training sequences, something like [[1,3,0,29,8],[17,8,2],...]
+        :param Y: list of target sequences, like [[,3,0,29,8,6],[8,2,0],...]
+        :param trunc: max number of BPTT to perform for a given example
+        :param eta: learning rate; this will be constant if adagrad=False
+        :param adagrad: whether to adapt learning rate using AdaGrad
+        :param num_epochs:
+        :param report_interval: report progress every such number of epochs
+        :param element_map: dictionary that maps element id (int) to the object it represents, e.g. {0:'a', 1:'b', ...};
+         optional, if provided, will sample the RNN to generate a sequence of such objects and print it
+
+        :return:
+        """
+        assert len(X) == len(Y)
+        N = len(X)
+        if adagrad:
+            grad_hist = np.zeros_like(self.params)
+
+        idx = np.arange(N)
+
+        for n in range(num_epochs):
+            np.random.shuffle(idx)
+            L = 0
+            for i in idx:
+                # do one SGD step
+                dparams, L_i = self.backprop(X[i], Y[i], trunc)
+                for dparam in dparams:
+                    np.clip(dparam, -5, 5, out=dparam)  # clip to mitigate exploding gradients
+                if adagrad:
+                    grad_hist += np.square(dparams)
+                    self.params -= eta * dparams / (grad_hist ** 0.5 + 1e-7)
+                else:
+                    self.params -= eta * dparams
+                L += L_i
+            # sample from the model now and then
+            if n % report_interval == 0:
+                print('epoch %d, loss %f' % (n, L/N))
+                sample_ix = self.sample(200)
+                txt = ''.join(element_map[ix] for ix in sample_ix)
+                print('----\n %s \n----' % (txt,))
+
+    def sample(self, T, seed_x=None, h_prev=None):
+        """
+        Sample a sequence of integers from the model
+        :param T: length of sequence to sample
+        :param seed_x: initial input element
+        :param h_prev: previous hidden state
+        :return:
+        """
+        if h_prev is None:  # use the RNN's current hidden unit by default
+            h = self.h
+        else:
+            h = h_prev
+        if seed_x is None:
+            seed_x = np.random.randint(0, self.data_size)
+        x = seed_x
+        xs = [x]
+        for t in range(T - 1):
+            a = self.b + self.U[:, x] + np.dot(self.W,
+                                               h)  # (10.8); note that indexing by xs[t] is equiv to multiplication
+            h = np.tanh(a)  # (10.9)
+            o = self.c + np.dot(self.V, h)  # (10.10)
+            p = softmax(o)  # (10.11), conditional dist for the next char
+            x = np.random.choice(self.data_size, p=p.ravel())
+            xs.append(x)
+
+        return xs
