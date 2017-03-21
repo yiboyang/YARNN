@@ -11,7 +11,7 @@ rnn.init_h()  # self.h is fixed to zero vec the entire time
 rnn.init_params()
 
 h, threshold = 1e-4, 1e-6
-dparams, _ = rnn.backprop(xs, ys, truncation=0)  # set truncation to > 0 for approximate gradients (may not pass checks)
+dparams, _ = rnn.backprop(xs, ys)
 for dparam, param, param_name in zip(dparams, rnn.params, ['b', 'c', 'U', 'W', 'V']):
     assert dparam.shape == param.shape
     it = np.nditer(param, flags=['multi_index'], op_flags=['readwrite'])

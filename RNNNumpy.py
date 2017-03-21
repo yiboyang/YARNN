@@ -64,7 +64,7 @@ class RNNNumpy:
 
 
 
-    def backprop(self, xs, ys, h_prev=None, truncation=0):
+    def backprop(self, xs, ys, h_prev=None, trunc=None):
         """
         Backprop through time to compute gradients of softmax loss function wrt parameters, using one training example;
         this is just standard backprop applied to the unrolled computational graph of RNN. No side effects.
@@ -74,7 +74,8 @@ class RNNNumpy:
         a one-hot input vector
         :param ys: target output data sequence codes (iterable), e.g. [0, 13, 11, 5]
         :param h_prev: hidden unit at time t=-1
-        :param truncation: number of BPTT steps to skip; 0 by default, i.e. full BPTT for the training example
+        :param trunc: number of back propagation steps to perform; default to len(xs), i.e. do BPTT exactly; else if
+        trunc < len(xs), BPTT will only be done on the last `trunc` elements, so the gradients will be approximate
         :return: tuple of gradients of loss function wrt model parameters, and loss: ((db, dc, dU, dW, dV), loss)
         """
         T = len(xs)  # training sequence length
@@ -85,6 +86,10 @@ class RNNNumpy:
             h = self.h
         else:
             h = h_prev
+
+        if trunc is None or trunc > T:  # perform BPTT exactly, on the entire sequence
+            trunc = T
+        skip = T - trunc    # the number of BPTT steps to skip
 
         # feedforward to get predictions/intermediate variables useful for backprop
         hs = np.empty((T, self.hidden_size))  # hidden states across time
@@ -107,23 +112,23 @@ class RNNNumpy:
         dos = np.copy(y_hats)
         dos[np.arange(T), ys] -= 1  # (10.18), for all time steps
 
-        # BPTT; only perform T-truncation time steps of computations
+        # BPTT; only perform (T-truncation) time steps of computations
         dhs = np.empty_like(hs)
         dhs[-1] = np.dot(self.V.T, dos[-1])  # (10.19) for last time step
 
-        for t in range(T - 2, truncation - 1, -1):
+        for t in range(T - 2, skip - 1, -1):
             dhs[t] = np.dot(self.W.T, (1 - hs[t + 1] ** 2) * dhs[t + 1]) + np.dot(self.V.T, dos[t])  # (10.21)
 
-        dc = np.sum(dos[truncation:], axis=0)  # (10.22)
-        db = np.sum((1 - hs[truncation:] ** 2) * dhs[truncation:], axis=0)  # (10.23)
-        dV = np.dot(dos[truncation:].T, hs[truncation:])  # more efficient than the sum of outer products in (10.24)
-        if truncation == 0:  # in case we BPTT all the way to the beginning
-            dW = np.dot(((1 - hs[truncation:] ** 2) * dhs[truncation:]).T,
-                        np.vstack((h_prev, hs))[:T - truncation])  # (10.26)
+        dc = np.sum(dos[skip:], axis=0)  # (10.22)
+        db = np.sum((1 - hs[skip:] ** 2) * dhs[skip:], axis=0)  # (10.23)
+        dV = np.dot(dos[skip:].T, hs[skip:])  # more efficient than the sum of outer products in (10.24)
+        if skip == 0:  # in case we BPTT all the way to the beginning
+            dW = np.dot(((1 - hs[skip:] ** 2) * dhs[skip:]).T,
+                        np.vstack((h_prev, hs))[:T - skip])  # (10.26)
         else:
-            dW = np.dot(((1 - hs[truncation:] ** 2) * dhs[truncation:]).T, hs[truncation - 1:-1])  # (10.26)
-        dU = np.dot(((1 - hs[truncation:] ** 2) * dhs[truncation:]).T,
-                    np.array(onehot(xs[truncation:], self.data_size)))  # (10.28)
+            dW = np.dot(((1 - hs[skip:] ** 2) * dhs[skip:]).T, hs[skip - 1:-1])  # (10.26)
+        dU = np.dot(((1 - hs[skip:] ** 2) * dhs[skip:]).T,
+                    np.array(onehot(xs[skip:], self.data_size)))  # (10.28)
 
         return (db, dc, dU, dW, dV), L
 
