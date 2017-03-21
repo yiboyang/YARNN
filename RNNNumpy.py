@@ -20,9 +20,9 @@ class RNNNumpy:
         self.W = np.empty((hidden_size, hidden_size))  # hidden to hidden weights
         self.V = np.empty((data_size, hidden_size))  # hidden to output weights
         # for convenience
-        self.biases = np.array((self.b, self.c))
-        self.weights = np.array((self.U, self.W, self.V))
-        self.params = np.array((self.b, self.c, self.U, self.W, self.V))
+        self.biases = np.array([self.b, self.c])
+        self.weights = np.array([self.U, self.W, self.V])
+        self.params = np.array([self.b, self.c, self.U, self.W, self.V])
 
     def init_params(self):
         """Initialize params"""
@@ -130,7 +130,7 @@ class RNNNumpy:
         dU = np.dot(((1 - hs[skip:] ** 2) * dhs[skip:]).T,
                     np.array(onehot(xs[skip:], self.data_size)))  # (10.28)
 
-        return np.array((db, dc, dU, dW, dV)), L
+        return np.array([db, dc, dU, dW, dV]), L
 
     def loss(self, xs, ys, h_prev=None):
         """
@@ -178,7 +178,7 @@ class RNNNumpy:
         assert len(X) == len(Y)
         N = len(X)
         if adagrad:
-            grad_hist = np.zeros_like(self.params)
+            grad_hist = np.array([np.zeros_like(p) for p in self.params])
 
         idx = np.arange(N)
 
@@ -192,13 +192,17 @@ class RNNNumpy:
                     np.clip(dparam, -5, 5, out=dparam)  # clip to mitigate exploding gradients
                 if adagrad:
                     grad_hist += np.square(dparams)
-                    self.params -= eta * dparams / (grad_hist ** 0.5 + 1e-7)
+                    param_updates = -eta * dparams / (grad_hist ** 0.5 + 1e-7)
                 else:
-                    self.params -= eta * dparams
-                L += L_i
+                    param_updates = -eta * dparams
+
+                for p, pu in zip(self.params, param_updates):   # note `self.params[:]+=param_updates` won't work
+                    p[:] += pu
+
+                L += L_i / len(X[i])
             # sample from the model now and then
             if n % report_interval == 0:
-                print('epoch %d, loss %f' % (n, L/N))
+                print('epoch %d, loss %f' % (n, L))
                 sample_ix = self.sample(200)
                 txt = ''.join(element_map[ix] for ix in sample_ix)
                 print('----\n %s \n----' % (txt,))

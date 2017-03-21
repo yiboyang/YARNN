@@ -21,4 +21,4 @@ rnn = RNNNumpy(vocab_size, hidden_size)
 rnn.init_h()
 rnn.init_params()
 
-rnn.sgd(X, Y, eta=learning_rate, element_map=ix_to_char)
+rnn.sgd(X, Y, eta=learning_rate, adagrad=False, report_interval=1, element_map=ix_to_char)
