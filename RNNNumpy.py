@@ -1,4 +1,5 @@
-"""First version of RNN using numpy, hardcoded to use one hidden layer"""
+"""First version of RNN using numpy, hardcoded to use one hidden layer. All the equations are from
+http://www.deeplearningbook.org/contents/rnn.html"""
 
 import numpy as np
 
@@ -38,31 +39,6 @@ class RNNNumpy:
             # h0 = np.random.rand(*self.h.shape)
             h0 = np.zeros_like(self.h)
         self.h = h0
-
-    # def step(self, x):
-    #     """
-    #     Perform one time step of computation
-    #     :param x: input data vec (one element of sequence)
-    #     :return: output vec
-    #     """
-    #     a = self.b + np.dot(self.U, x) + np.dot(self.W, self.h)  # (10.8)
-    #     h = np.tanh(a)  # (10.9)
-    #     o = self.c + np.dot(self.V, h)  # (10.10)
-    #     self.h = h
-    #     return softmax(o)  # (10.11)
-    #
-    # def predict(self, xs):
-    #     """
-    #     Feed forward computation across time given a sequence of inputs to get probability outputs
-    #     :param xs: input data sequence (iterable)
-    #     :return: a list of output data probabilities at each time step
-    #     """
-    #     y_hats = []
-    #     for x in xs:
-    #         y_hats.append(self.step(x))
-    #     return y_hats
-
-
 
     def backprop(self, xs, ys, h_prev=None, trunc=None):
         """
@@ -172,8 +148,6 @@ class RNNNumpy:
         :param report_interval: report progress every such number of epochs
         :param element_map: dictionary that maps element id (int) to the object it represents, e.g. {0:'a', 1:'b', ...};
          optional, if provided, will sample the RNN to generate a sequence of such objects and print it
-
-        :return:
         """
         assert len(X) == len(Y)
         N = len(X)
@@ -213,7 +187,7 @@ class RNNNumpy:
         :param T: length of sequence to sample
         :param seed_x: initial input element
         :param h_prev: previous hidden state
-        :return:
+        :return: a sampled sequence
         """
         if h_prev is None:  # use the RNN's current hidden unit by default
             h = self.h
