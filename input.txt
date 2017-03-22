@@ -1,0 +1,52 @@
+Recurrent neural networks or RNNs (Rumelhart et al., 1986a) are a family of
+neural networks for processing sequential data. Much as a convolutional network
+is a neural network that is specialized for processing a grid of values X such as
+an image, a recurrent neural network is a neural network that is specialized for
+processing a sequence of values x(1), . . . , x(τ). Just as convolutional networks
+can readily scale to images with large width and height, and some convolutional
+networks can process images of variable size, recurrent networks can scale to much
+longer sequences than would be practical for networks without sequence-based
+specialization. Most recurrent networks can also process sequences of variable
+length.
+To go from multi-layer networks to recurrent networks, we need to take advantage of
+one of the early ideas found in machine learning and statistical models of
+the 1980s: sharing parameters across different parts of a model. Parameter sharing
+makes it possible to extend and apply the model to examples of different forms
+(different lengths, here) and generalize across them. If we had separate parameters
+for each value of the time index, we could not generalize to sequence lengths not
+seen during training, nor share statistical strength across different sequence lengths
+and across different positions in time. Such sharing is particularly important when
+a specific piece of information can occur at multiple positions within the sequence.
+For example, consider the two sentences “I went to Nepal in 2009” and “In 2009,
+I went to Nepal.” If we ask a machine learning model to read each sentence and
+extract the year in which the narrator went to Nepal, we would like it to recognize
+the year 2009 as the relevant piece of information, whether it appears in the sixth
+A related idea is the use of convolution across a 1-D temporal sequence. This
+convolutional approach is the basis for time-delay neural networks (Lang and
+Hinton, 1988; Waibel et al., 1989; Lang et al., 1990). The convolution operation
+allows a network to share parameters across time, but is shallow. The output
+of convolution is a sequence where each member of the output is a function of
+a small number of neighboring members of the input. The idea of parameter
+sharing manifests in the application of the same convolution kernel at each time
+step. Recurrent networks share parameters in a different way. Each member of the
+output is a function of the previous members of the output. Each member of the
+output is produced using the same update rule applied to the previous outputs.
+This recurrent formulation results in the sharing of parameters through a very
+deep computational graph.
+For the simplicity of exposition, we refer to RNNs as operating on a sequence
+that contains vectors x(t) with the time step index t ranging from 1 to τ. In
+practice, recurrent networks usually operate on minibatches of such sequences,
+with a different sequence length τ for each member of the minibatch. We have
+omitted the minibatch indices to simplify notation. Moreover, the time step index
+need not literally refer to the passage of time in the real world, but only to the
+position in the sequence. RNNs may also be applied in two dimensions across
+spatial data such as images, and even when applied to data involving time, the
+network may have connections that go backwards in time, provided that the entire
+sequence is observed before it is provided to the network.
+This chapter extends the idea of a computational graph to include cycles. These
+cycles represent the influence of the present value of a variable on its own value
+at a future time step. Such computational graphs allow us to define recurrent
+neural networks. We then describe many different ways to construct, train, and
+use recurrent neural networks.
+For more information on recurrent neural networks than is available in this
+chapter, we refer the reader to the textbook of Graves (2012).
